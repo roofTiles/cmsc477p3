@@ -1,3 +1,4 @@
+import detection
 import robomaster
 from robomaster import robot
 import time
@@ -6,60 +7,225 @@ import numpy as np
 from robomaster import robot
 import time
 import math
+import cv2
 
 # if robot starts off on the left side this is
 # -1 otherwise if it is the right side this is 1
-y_sign = -1
+#sign = 1
 
 class DistanceTest():
 
     def __init__(self, ep_chassis, ep_sensor):
-        self.dist = 0
+        self.dist = 1000
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
         self.ep_chassis = ep_chassis
         self.ep_sensor = ep_sensor
-
-    def avoid(self, translation_speed = 0.20, rotational_speed = 10, 
-                    k_t = 0.01/2, k_r = 0.01):
-
-        horizontal_distance = 0
-        obj_dist = 100000
-        x_speed = 0.2
-
-        threshold_dist = 300
+    
+    # moves the robot towards the target lego as long as the lego is in the camera frame.
+    # also moves robot side to side to avoid obstacles during approach.
+    def move_robot(self, x_speed = 0.2, y_speed = 0.30, sleep_time = 0.1, h_obstacle_max = 450, threshold_dist = 300, ep_camera = None):
+        print("GIVER: Moving to lego")
+        # parameter for camera pointing angle
         camera_angle = math.atan(threshold_dist/100)
+
+        while self.x < 1:
+            # use IR sensor to find distance to obstacle
+            sensor_dist = math.sin(camera_angle) * self.dist
+            print("x: ", self.x, "y: ", self.y, "Object: ", sensor_dist)
+
+            # read in largest (nearest) YOLO bounding box for obstacles and lego
+            bb_obstacle = detection.detect_object_in_image(c='obstacle', conf=0.35, image=None, ep_camera=ep_camera)
+
+            # if obstacles are in view, do the following...
+            if bb_obstacle[0] and ((sensor_dist < threshold_dist) or (bb_obstacle[1][2] > h_obstacle_max)):
+                # if an obstacle is in view and its centroid is to the right of the camera center, slide robot left
+                if (bb_obstacle[1][0] > 1280/2):
+                    ep_chassis.drive_speed(x=0, y=-y_speed, z=0, timeout=5)
+                    time.sleep(10*sleep_time)
+                # if an obstacle is in view and its centroid is to the left of the camera center, slide robot right
+                else:
+                    ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
+                    time.sleep(10*sleep_time)
+            
+            else:
+                ep_chassis.drive_speed(x=x_speed, y=0, z=0, timeout=5)
+                time.sleep(sleep_time)
         
-        while self.x < 2.0:
-            obj_dist = math.sin(camera_angle) * self.dist
-            print("x: ", self.x, "y: ", self.y, "Object: ", obj_dist)
+        ep_chassis.drive_speed(x=0, y=0, z=-40, timeout=5)
+        time.sleep(20*sleep_time)
 
-            if self.y > 2.0:
-                ep_chassis.drive_speed(y=0.2)
-                time.sleep(1)
+        while self.x < 1.3:
+            # use IR sensor to find distance to obstacle
+            sensor_dist = math.sin(camera_angle) * self.dist
+            print("x: ", self.x, "y: ", self.y, "Object: ", sensor_dist)
 
-            elif self.y < -0.3:
-                ep_chassis.drive_speed(y=-0.2)
-                time.sleep(1)
+            # read in largest (nearest) YOLO bounding box for obstacles and lego
+            bb_obstacle = detection.detect_object_in_image(c='obstacle', conf=0.35, image=None, ep_camera=ep_camera)
+
+            # if obstacles are in view, do the following...
+            if bb_obstacle[0] and ((sensor_dist < threshold_dist) or (bb_obstacle[1][2] > h_obstacle_max)):
+                # if an obstacle is in view and its centroid is to the right of the camera center, slide robot left
+                if (bb_obstacle[1][0] > 1280/2):
+                    ep_chassis.drive_speed(x=0, y=-y_speed, z=0, timeout=5)
+                    time.sleep(10*sleep_time)
+                # if an obstacle is in view and its centroid is to the left of the camera center, slide robot right
+                else:
+                    ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
+                    time.sleep(10*sleep_time)
+            
+            else:
+                ep_chassis.drive_speed(x=x_speed, y=0, z=0, timeout=5)
+                time.sleep(sleep_time)
+        return
+    
+    
+    def move_to_line(self, ep_camera=None):
+
+        Oriented = False
+
+        while not Oriented:
+        # try:
+            # Input camera feed
+            image = ep_camera.read_cv2_image(strategy="newest", timeout=0.5)
+
+            # apply gaussian blur
+            Gaussian = cv2.GaussianBlur(image, (13, 9), 0)
+
+            hsv = cv2.cvtColor(Gaussian, cv2.COLOR_BGR2HSV)
+
+            # Threshold of blue in HSV space
+            lower_blue = np.array([60, 60, 130])  # [60, 35, 140]
+            upper_blue = np.array([160, 220, 255])  # [180, 255, 255]
+
+            # preparing the mask to overlay
+            mask2 = cv2.inRange(hsv, lower_blue, upper_blue)
+
+            # The black region in the mask has the value of 0,
+            # so when multiplied with original image removes all non-blue regions
+            result = cv2.bitwise_and(Gaussian, Gaussian, mask=mask2)
+
+            # Apply edge detection method on the image
+            edges = cv2.Canny(result, 50, 150, apertureSize=3)
+
+            # This returns an array of r and theta values
+            lines = cv2.HoughLines(edges, 1, np.pi / 180, 200)
+            print(str(lines))
+            r_vals = 0
+            thet_vals = 0
+
+
+            if not lines is None:
+
+                # average all lines
+                for i in range(len(lines)):
+                    r_vals = r_vals + lines[i][0][0]
+                    thet_vals = thet_vals + lines[i][0][1]
+                    r = r_vals / (i + 1)
+                    thet = thet_vals / (i + 1)
+
+                    # yaw angle
+                    yaw = (math.pi / 2) - thet 
+                    print("yaw", np.rad2deg(yaw))
                     
-            elif (obj_dist > threshold_dist):
-                ep_chassis.drive_speed(x=x_speed)
+                y = []
+                x = []
+
+                # determine equation of mean line to plot
+                if thet < math.pi / 2:
+                    x0 = r / math.cos(thet)
+                    y0 = r / math.cos(math.pi / 2 - thet)
+                    m = -y0 / x0
+
+                elif thet > math.pi / 2:
+                    x0 = -r / math.cos(math.pi - thet)
+                    y0 = r / math.cos(thet - math.pi / 2)
+                    m = -y0 / x0
+                
+
+                for j in range(0, 1280):
+                    if m * j + y0 < 720:
+                        x.append(j)
+                        y.append(m * j + y0)
+                
+                
+                
+                # orient robot
+                #ep_chassis.move(x=0, y=0, z=np.rad2deg(yaw), z_speed=0.3*np.rad2deg(yaw)).wait_for_completed()
+                ep_chassis.drive_speed(x=0, y=0, z=-1*np.rad2deg(yaw))
                 time.sleep(1)
+                #time.sleep(0.1)
+                
+                
+                if np.rad2deg(yaw) > -3 and np.rad2deg(yaw) < 3:
+                    Oriented = True
+                    # move robot
+                    y_min = 110*2  # pixels 124
+                    y_end = 285*2  # pixels 285
+                    ws_inside_dist = 1.15  # [m]
+                    scale = ws_inside_dist/(y_end - y_min)
+                    if len(y) > 0:
+                        pixel_dist = round((y[0] + y[-1])/2)
+                    else:
+                        pixel_dist = y_end
+                    x_vel = abs(pixel_dist-y_end)*scale
+                    print("pixel distance:", pixel_dist)
+                    print("actual distance", x_vel)
+                    #ep_chassis.move(x=x_vel, y=0, z=0, xy_speed=x_vel*.33).wait_for_completed()
+                    ep_chassis.drive_speed(x=0.7*0.6/5, y=0, z=0) #x_vel
+                    time.sleep(5)
+                    ep_chassis.drive_speed(x=0, y=0, z=0)
+                    time.sleep(0.5)
+                
+
 
             else:
-                print("close to obj")
+                print('Target line is out of view')
+                #ep_chassis.move(x=0, y=0, z=15, z_speed=15).wait_for_completed()
+                ep_chassis.drive_speed(x=0, y=0, z=-15)
+                time.sleep(1)
 
-                if (self.y <= 2.5/2): # prevent veering off
-                    ep_chassis.drive_speed(x=0, y=0.3, z=0, timeout=5)
-                    time.sleep(0.5)
 
-                elif (self.y > 2.5/2):
-                    ep_chassis.drive_speed(x=0, y=-0.3, z=0, timeout=5)
-                    time.sleep(0.5)
+    # def avoid(self, translation_speed = 0.20, rotational_speed = 10, 
+    #                 k_t = 0.01/2, k_r = 0.01):
 
-        ep_chassis.drive_speed(x=0, y=0, z=0, timeout=5)
-        time.sleep(0.1)
+    #     horizontal_distance = 0
+    #     obj_dist = 100000
+    #     x_speed = 0.2
+
+    #     threshold_dist = 300
+    #     camera_angle = math.atan(threshold_dist/100)
+        
+    #     while self.x < 2.0:
+    #         obj_dist = math.sin(camera_angle) * self.dist
+    #         print("x: ", self.x, "y: ", self.y, "Object: ", obj_dist)
+
+    #         if self.y > 2.0:
+    #             ep_chassis.drive_speed(y=0.2)
+    #             time.sleep(1)
+
+    #         elif self.y < -0.3:
+    #             ep_chassis.drive_speed(y=-0.2)
+    #             time.sleep(1)
+                    
+    #         elif (obj_dist > threshold_dist):
+    #             ep_chassis.drive_speed(x=x_speed)
+    #             time.sleep(1)
+
+    #         else:
+    #             print("close to obj")
+
+    #             if (self.y <= 2.5/2): # prevent veering off
+    #                 ep_chassis.drive_speed(x=0, y=0.3, z=0, timeout=5)
+    #                 time.sleep(0.5)
+
+    #             elif (self.y > 2.5/2):
+    #                 ep_chassis.drive_speed(x=0, y=-0.3, z=0, timeout=5)
+    #                 time.sleep(0.5)
+
+    #     ep_chassis.drive_speed(x=0, y=0, z=0, timeout=5)
+    #     time.sleep(0.1)
 
 def sub_data_handler(sub_info):
     distance = sub_info
@@ -67,8 +233,12 @@ def sub_data_handler(sub_info):
 
 def sub_position_handler(position_info):
     x, y, z = position_info
+    # distspinner.x = y
+    # distspinner.y = -x
+    # distspinner.z = z
+    # change as needed
     distspinner.x = y
-    distspinner.y = -x
+    distspinner.y = x
     distspinner.z = z
 
 
@@ -86,10 +256,12 @@ if __name__ == '__main__':
         distspinner = DistanceTest(ep_chassis=ep_chassis, ep_sensor=ep_sensor)
         ep_sensor.sub_distance(freq=10, callback=sub_data_handler)
         ep_chassis.sub_position(freq=10, callback=sub_position_handler)
+        ep_camera.start_video_stream(display=True)
 
         time.sleep(1)
 
-        distspinner.avoid()
+        distspinner.move_robot(ep_camera=ep_camera)
+        distspinner.move_to_line(ep_camera=ep_camera)
 
         ep_sensor.unsub_distance()
         ep_chassis.unsub_position()
