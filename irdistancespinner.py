@@ -13,7 +13,7 @@ import cv2
 class DistanceTest():
 
     def __init__(self, ep_chassis, ep_sensor):
-        self.dist = 1000
+        self.dist = 0
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
@@ -22,7 +22,7 @@ class DistanceTest():
     
     # moves the robot towards the target lego as long as the lego is in the camera frame.
     # also moves robot side to side to avoid obstacles during approach.
-    def move_robot(self, is_left, x_speed = 0.2, y_speed = 0.30, sleep_time = 0.1, h_obstacle_max = 300, threshold_dist = 300, ep_camera = None):
+    def move_robot(self, is_left, x_speed = 0.2, y_speed = 0.3, sleep_time = 0.1, h_obstacle_max = 340, threshold_dist = 400, ep_camera = None):
         print("GIVER: Moving to lego")
 
         # if robot starts off on the left side this is
@@ -48,13 +48,17 @@ class DistanceTest():
                 # if an obstacle is in view and its centroid is to the right of the camera center, slide robot left
                 if (bb_obstacle[1][0] > 1280/2):
                     print("moving left")
-                    ep_chassis.drive_speed(x=0, y=-y_speed, z=0, timeout=5)
+                    ep_chassis.drive_speed(x=0, y=sign*-y_speed, z=0, timeout=5)
                     time.sleep(10*sleep_time)
+                    ep_chassis.drive_speed(x=0, y=0, z=0, timeout=5)
+                    time.sleep(2*sleep_time)
                 # if an obstacle is in view and its centroid is to the left of the camera center, slide robot right
                 else:
                     print("moving right")
-                    ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
+                    ep_chassis.drive_speed(x=0, y=sign*y_speed, z=0, timeout=5)
                     time.sleep(10*sleep_time)
+                    ep_chassis.drive_speed(x=0, y=0, z=0, timeout=5)
+                    time.sleep(2*sleep_time)
                 
                 # # if an obstacle is in view and its centroid is to the right of the camera center, slide robot left
                 # if (bb_obstacle[1][0] > 1280/2): 
@@ -82,10 +86,10 @@ class DistanceTest():
         ep_chassis.drive_speed(x=0, y=0, z=sign*40, timeout=5)
         time.sleep(20*sleep_time)
 
-        while self.x < 1.8:
+        while self.x < 1.4:
             # use IR sensor to find distance to obstacle
             sensor_dist = math.sin(camera_angle) * self.dist
-            # print("x: ", self.x, "y: ", self.y, "Object: ", sensor_dist)
+            print("x: ", self.x, "y: ", self.y, "Object: ", sensor_dist)
 
             # read in largest (nearest) YOLO bounding box for obstacles and lego
             bb_obstacle = detection.detect_object_in_image(c='obstacle', conf=0.35, image=None, ep_camera=ep_camera)
@@ -95,13 +99,18 @@ class DistanceTest():
                 # if an obstacle is in view and its centroid is to the right of the camera center, slide robot left
                 if (bb_obstacle[1][0] > 1280/2) and self.y :
                     print("moving left")
-                    ep_chassis.drive_speed(x=0, y=-y_speed, z=0, timeout=5)
+                    ep_chassis.drive_speed(x=0, y=sign*-y_speed, z=0, timeout=5)
                     time.sleep(10*sleep_time)
+                    ep_chassis.drive_speed(x=0, y=0, z=0, timeout=5)
+                    time.sleep(2*sleep_time)
+
                 # if an obstacle is in view and its centroid is to the left of the camera center, slide robot right
                 else:
                     print("moving right")
-                    ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
+                    ep_chassis.drive_speed(x=0, y=sign*y_speed, z=0, timeout=5)
                     time.sleep(10*sleep_time)
+                    ep_chassis.drive_speed(x=0, y=0, z=0, timeout=5)
+                    time.sleep(2*sleep_time)
             
             else:
                 ep_chassis.drive_speed(x=x_speed, y=0, z=0, timeout=5)
@@ -195,7 +204,7 @@ class DistanceTest():
                     x_vel = abs(pixel_dist-y_end)*scale
                     print("pixel distance:", pixel_dist)
                     print("actual distance", x_vel)
-                    ep_chassis.drive_speed(x=x_speed, y=0, z=0) #x_vel
+                    ep_chassis.drive_speed(x=0.25, y=0, z=0) #x_vel
                     time.sleep(5)
                     ep_chassis.drive_speed(x=0, y=0, z=0)
                     time.sleep(0.5)
@@ -220,7 +229,6 @@ def sub_position_handler(position_info):
     distspinner.x = y
     distspinner.y = x
 
-
 if __name__ == '__main__':
         
         ep_robot = robot.Robot()
@@ -238,14 +246,14 @@ if __name__ == '__main__':
         ep_camera.start_video_stream(display=True)
 
         time.sleep(1)
-        ep_gripper.close(power=100)
+        ep_gripper.open(power=100)
         time.sleep(1)
         ep_arm.move(x=100, y=0).wait_for_completed()
 
 
         time.sleep(1)
 
-        distspinner.move_robot(is_left=False, ep_camera=ep_camera)
+        distspinner.move_robot(is_left=True, ep_camera=ep_camera)
         distspinner.move_to_line(ep_camera=ep_camera)
 
         ep_sensor.unsub_distance()
