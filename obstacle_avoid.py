@@ -59,25 +59,6 @@ class DistanceTest():
                     time.sleep(10*sleep_time)
                     ep_chassis.drive_speed(x=0, y=0, z=0, timeout=5)
                     time.sleep(2*sleep_time)
-                
-                # # if an obstacle is in view and its centroid is to the right of the camera center, slide robot left
-                # if (bb_obstacle[1][0] > 1280/2): 
-                #     if self.y > 0.3:
-                #         ep_chassis.drive_speed(x=0, y=-y_speed, z=0, timeout=5)
-                #         time.sleep(20*sleep_time)
-                #     else:
-                #         ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
-                #         time.sleep(20*sleep_time)
-                # # if an obstacle is in view and its centroid is to the left of the camera center, slide robot right
-                # else:
-                #     if self.y > 0.3:
-                #         ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
-                #         time.sleep(20*sleep_time)
-                #     else:
-                #         ep_chassis.drive_speed(x=0, y=-y_speed, z=0, timeout=5)
-                #         time.sleep(20*sleep_time)
-                #     # ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
-                #     # time.sleep(10*sleep_time)
             
             else:
                 ep_chassis.drive_speed(x=x_speed, y=0, z=0, timeout=5)
