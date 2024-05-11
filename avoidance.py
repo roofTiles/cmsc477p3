@@ -8,21 +8,22 @@ import math
 #import gripping
 #import cv2
 
-max_v = 1.0
-min_v = -0.5
-resolution_v = 0.05
-max_yaw = 40.0*math.pi/180.0
-resolution_yaw = 2.0 * math.pi/180.0
-max_accel = 0.2
-max_yaw_accel = 40.0 * math.pi / 180.0 # speed parameters
+max_v = 1.0  # [m/s]
+min_v = -0.5  # [m/s]
+resolution_v = 0.05  # [m/s]
+max_yaw = 40.0*math.pi/180.0 # [rad/s]
+resolution_yaw = 2.0 * math.pi/180.0 # [rad/s]
+max_accel = 0.2 # [m/s^2]
 
-dt = 0.1
-predict_time = 2.0 # time to predict over
+max_yaw_accel = 40.0 * math.pi / 180.0 # speed parameters [rad/s^2]
+
+dt = 0.1  # [s] Time tick for motion prediction
+predict_time = 3.0 # time to predict over [s]
 
 speed_cost_gain = 1.0
 obstacle_cost_gain = 1.0
 to_goal_cost_gain = 0.15 # params for cost function
-
+# add robot_stuck_flag_cons ?
 robot_width = 0.4
 robot_length = 0.4 # dimensions for collision check
 
@@ -30,9 +31,9 @@ def dwa_control(x, goal, ob):
     """
     Dynamic Window Approach control
     """
-    dw = calc_dynamic_window(x)
+    dw = calc_dynamic_window(x) # see line 52
 
-    u, trajectory = calc_control_and_trajectory(x, dw, goal, ob)
+    u, trajectory = calc_control_and_trajectory(x, dw, goal, ob) # see line 84
 
     return u, trajectory
 
@@ -69,13 +70,13 @@ def calc_dynamic_window(x):
 
     return dw
 
-def predict_trajectory(x_init, v, y):
+def predict_trajectory(x_init, v, y): # is x_init a set of coordinates or x-values?
     x = np.array(x_init)
     trajectory = np.array(x)
     time = 0
     while time <= predict_time:
-        x = motion(x, [v, y], dt)
-        trajectory = np.vstack((trajectory, x))
+        x = motion(x, [v, y], dt)  # see line 44 (v is linear velocity range, y is yaw velocity range)
+        trajectory = np.vstack((trajectory, x))  # vertically stacks trajectory and x
         time += dt
 
     return trajectory
@@ -91,11 +92,11 @@ def calc_control_and_trajectory(x, dw, goal, ob):
     for v in np.arange(dw[0], dw[1], resolution_v):
         for y in np.arange(dw[2], dw[3], resolution_yaw):
 
-            trajectory = predict_trajectory(x_init, v, y)
+            trajectory = predict_trajectory(x_init, v, y)  # see line 73
             # calc cost
-            to_goal_cost = to_goal_cost_gain * calc_to_goal_cost(trajectory, goal)
+            to_goal_cost = to_goal_cost_gain * calc_to_goal_cost(trajectory, goal)  # see line 144
             speed_cost = speed_cost_gain * (max_v - trajectory[-1, 3])
-            ob_cost = obstacle_cost_gain * calc_obstacle_cost(trajectory, ob)
+            ob_cost = obstacle_cost_gain * calc_obstacle_cost(trajectory, ob)  # see line 116
 
             final_cost = to_goal_cost + speed_cost + ob_cost
 
@@ -104,7 +105,7 @@ def calc_control_and_trajectory(x, dw, goal, ob):
                 min_cost = final_cost
                 best_u = [v, y]
                 best_trajectory = trajectory
-                if abs(best_u[0]) < 0.0 and abs(x[3]) < 0.0:
+                if abs(best_u[0]) < 0.001 and abs(x[3]) < 0.001:
                     # to ensure the robot do not get stuck in
                     # best v=0 m/s (in front of an obstacle) and
                     # best omega=0 rad/s (heading to the goal with
