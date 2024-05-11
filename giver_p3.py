@@ -150,41 +150,6 @@ class DistanceTest():
             return self.look_for_lego(ep_camera=ep_camera)
         
         
-    # moves the robot from the lego enclosure to the blue line.
-    # also moves robot side to side to avoid obstacles during approach.
-    # def move_robot_x(self, distance = 0.3, diff = 0, x_speed = 0.2, y_speed = 0.15, sleep_time = 0.1, w_obstacle_max = 450, threshold_dist = 300, ep_camera = None):
-    #     print("GIVER: Moving to lego")
-
-    #     # parameter for camera pointing angle
-    #     camera_angle = math.atan(threshold_dist/100)
-
-    #     while self.x - diff < distance:
-    #         # use IR sensor to find distance to obstacle
-    #         sensor_dist = math.sin(camera_angle) * self.dist
-    #         print("x: ", self.x, "y: ", self.y, "z: ", self.z, "Object: ", sensor_dist)
-
-    #         # read in largest (nearest) YOLO bounding box for obstacles and lego
-    #         bb_obstacle = detection.detect_object_in_image(c='obstacle', conf=0.35, image=None, ep_camera=ep_camera)
-
-    #         # if obstacles are in view, do the following...
-    #         if bb_obstacle[0] and ((sensor_dist < threshold_dist or bb_obstacle[1][2] > w_obstacle_max)):
-    #             # if an obstacle is in view and its centroid is to the right of the camera center, slide robot left
-    #             if (bb_obstacle[1][0] > 1280/2):
-    #                 ep_chassis.drive_speed(x=0, y=-y_speed, z=0, timeout=5)
-    #                 time.sleep(10*sleep_time)
-    #             # if an obstacle is in view and its centroid is to the left of the camera center, slide robot right
-    #             else:
-    #                 ep_chassis.drive_speed(x=0, y=y_speed, z=0, timeout=5)
-    #                 time.sleep(10*sleep_time)
-            
-    #         else:
-    #             ep_chassis.drive_speed(x=x_speed, y=0, z=0, timeout=5)
-    #             time.sleep(sleep_time)
-    #     return [distspinner.x, distspinner.y, distspinner.z]
-    
-    
-    # moves the robot from the lego enclosure to the blue line.
-    # also moves robot side to side to avoid obstacles during approach.
     def move_robot(self, moving_x = True, distance = 0, diff = 0, x_speed = 0.2, y_speed = 0.1, sleep_time = 0.1, w_obstacle_max = 450, threshold_dist = 300, ep_camera = None):
         print("GIVER: Moving to lego")
 
@@ -420,10 +385,13 @@ if __name__ == '__main__':
     ep_chassis.drive_speed(x=0, y=0, z=-80, timeout=5)
     time.sleep(1)
 
+    # a7) Move horizontally to blue line
     encoder_vals3 = distspinner.move_robot(moving_x = True, distance = 1, diff = encoder_vals4[0], ep_camera=ep_camera)  
 
+    # a8) Find and move vertically towards blue line
     distspinner.move_to_line(x_speed = 0.1, ep_camera=ep_camera)
-    # a6) Drop lego
+    
+    # a9) Drop lego
     distspinner.drop_lego(ep_gripper=ep_gripper, ep_arm=ep_arm)
 
     for i in range(5):
